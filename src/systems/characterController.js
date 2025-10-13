@@ -84,16 +84,40 @@ export default class CharacterController {
       const dt = (this.scene.game.loop?.delta ?? 16) / 1000;
       let nx = this.sprite.x + v.x * speed * dt;
       let ny = this.sprite.y + v.y * speed * dt;
-      // clamp to ref bounds, respecting sprite size
+
+      // Collision with polygon obstacles: per-axis resolve, circle collider
       const halfW = (this.sprite.displayWidth || 0) / 2;
       const halfH = (this.sprite.displayHeight || 0) / 2;
-      const minX = this.ref.x + halfW;
-      const maxX = this.ref.x + this.ref.width - halfW;
-      const minY = this.ref.y + halfH;
-      const maxY = this.ref.y + this.ref.height - halfH;
-      nx = Math.max(minX, Math.min(maxX, nx));
-      ny = Math.max(minY, Math.min(maxY, ny));
-      this.sprite.setPosition(nx, ny);
+      // collider: circle radius from display size; center at sprite origin by default
+      const r = (this.cfg.collider?.radiusPct != null)
+        ? Math.min(halfW, halfH) * this.cfg.collider.radiusPct
+        : Math.min(halfW, halfH) * 0.45;
+      const offX = this.cfg.collider?.offsetX || 0;
+      const offY = this.cfg.collider?.offsetY || 0;
+
+      // try move X
+      let tryX = nx, tryY = this.sprite.y;
+      ({ x: tryX } = this.resolveCollision(tryX+offX, tryY+offY, r, 'x'));
+      // then move Y
+      tryY = ny;
+      ({ y: tryY } = this.resolveCollision(tryX+offX, tryY+offY, r, 'y'));
+
+      // clamp collider center to bg bounds, then convert back to sprite position
+      let cx = tryX + offX; let cy = tryY + offY;
+      const minCx = this.ref.x + r; const maxCx = this.ref.x + this.ref.width - r;
+      const minCy = this.ref.y + r; const maxCy = this.ref.y + this.ref.height - r;
+      cx = Math.max(minCx, Math.min(maxCx, cx));
+      cy = Math.max(minCy, Math.min(maxCy, cy));
+      this.sprite.setPosition(cx - offX, cy - offY);
+    }
+
+    // Debug: draw collider outline when URL debug=1
+    const params = new URLSearchParams(window.location.search);
+    const debugOn = ['1','true','yes'].includes((params.get('debug')||'').toLowerCase());
+    if (debugOn){
+      this.drawCollider();
+    } else {
+      this.clearCollider();
     }
   }
 
@@ -132,6 +156,87 @@ export default class CharacterController {
       const idleKey = v.idle.key || `${this.cfg.id}_${dir}_idle`;
       this.sprite.setTexture(idleKey);
     }
+  }
+
+  drawCollider(){
+    // circle collider (centered at sprite origin + user offset)
+    const halfW = (this.sprite.displayWidth || 0) / 2;
+    const halfH = (this.sprite.displayHeight || 0) / 2;
+    const r = (this.cfg.collider?.radiusPct != null)
+      ? Math.min(halfW, halfH) * this.cfg.collider.radiusPct
+      : Math.min(halfW, halfH) * 0.45;
+    const offX = this.cfg.collider?.offsetX || 0;
+    const offY = this.cfg.collider?.offsetY || 0;
+    const cx = this.sprite.x + offX;
+    const cy = this.sprite.y + offY;
+    this.colliderG?.destroy();
+    const g = this.scene.add.graphics();
+    g.lineStyle(1, 0x10b981, 0.95);
+    g.strokeCircle(cx, cy, r);
+    // crosshair for center
+    g.lineBetween(cx-4, cy, cx+4, cy);
+    g.lineBetween(cx, cy-4, cx, cy+4);
+    this.colliderG = g;
+  }
+
+  clearCollider(){ this.colliderG?.destroy(); this.colliderG = null; }
+
+  // Resolve circle vs polygon collisions along one axis (ax='x' or 'y')
+  resolveCollision(cx, cy, r, ax){
+    const obs = this.scene.obstaclesPx || [];
+    let rx = cx, ry = cy;
+    for (const o of obs){
+      // AABB coarse check
+      if (rx + r < o.aabb.x || rx - r > o.aabb.right || ry + r < o.aabb.y || ry - r > o.aabb.bottom) continue;
+      if (o.type === 'poly'){
+        // fine: circle vs polygon edges
+        const pts = o.points; const n = pts.length;
+        for (let i=0;i<n;i++){
+          const a = pts[i], b = pts[(i+1)%n];
+          // closest point on segment ab to circle center
+          const vx = b.x - a.x, vy = b.y - a.y;
+          const wx = rx - a.x, wy = ry - a.y;
+          const c1 = vx*wx + vy*wy; const c2 = vx*vx + vy*vy;
+          let t = c2 ? (c1 / c2) : 0; if (t<0) t=0; if (t>1) t=1;
+          const px = a.x + t*vx, py = a.y + t*vy;
+          const dx = rx - px, dy = ry - py;
+          const dist = Math.hypot(dx, dy);
+          if (dist < r){
+            // push out along the minimal axis
+            const overlap = r - dist || r; // handle zero dist edge case
+            if (ax === 'x') rx += (dx === 0 ? (vx===0?0:Math.sign(vx))*overlap : (dx/dist)*overlap);
+            else ry += (dy === 0 ? (vy===0?0:Math.sign(vy))*overlap : (dy/dist)*overlap);
+          }
+        }
+        // also check vertices (circle vs point)
+        for (let i=0;i<n;i++){
+          const vx = rx - pts[i].x, vy = ry - pts[i].y;
+          const d = Math.hypot(vx, vy);
+          if (d < r){
+            const overlap = r - d || r;
+            if (ax === 'x') rx += (vx === 0 ? 0 : (vx/d)*overlap);
+            else ry += (vy === 0 ? 0 : (vy/d)*overlap);
+          }
+        }
+      } else if (o.type === 'line'){
+        // circle vs segment with optional halfWidthPx (thick line by radius inflate)
+        const axx = o.a.x, ayy = o.a.y, bxx = o.b.x, byy = o.b.y;
+        const vx = bxx - axx, vy = byy - ayy;
+        const wx = rx - axx, wy = ry - ayy;
+        const c1 = vx*wx + vy*wy; const c2 = vx*vx + vy*vy;
+        let t = c2 ? (c1 / c2) : 0; if (t<0) t=0; if (t>1) t=1;
+        const px = axx + t*vx, py = ayy + t*vy;
+        const dx = rx - px, dy = ry - py;
+        const rInflated = r + (o.halfWidthPx || 0);
+        const dist = Math.hypot(dx, dy);
+        if (dist < rInflated){
+          const overlap = rInflated - dist || rInflated;
+          if (ax === 'x') rx += (dx === 0 ? (vx===0?0:Math.sign(vx))*overlap : (dx/dist)*overlap);
+          else ry += (dy === 0 ? (vy===0?0:Math.sign(vy))*overlap : (dy/dist)*overlap);
+        }
+      }
+    }
+    return { x: rx, y: ry };
   }
 
   // Map dir key to normalized vector
