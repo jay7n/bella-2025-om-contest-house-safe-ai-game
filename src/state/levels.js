@@ -31,11 +31,22 @@ export const LEVELS = [
       fail: [
         { speaker: 'father',   text: '时间到了，我们复盘一下遗漏的地方。' },
       ],
+      // 针对具体要素（按 id）
+      hazards: {
+        knife: [
+          { speaker: 'father',   text: '观察得真细致！刀具要收纳好，避免误伤。' },
+          { speaker: 'daughter', text: '收到～我会把刀放回刀架。' },
+        ],
+      },
     },
     triggers: {
       onStart: 'intro',
       onFound: [ { count: 2, key: 'hint1' } ],
       onFinish: { success: 'success', fail: 'fail' },
+      // 命中特定要素时触发对话
+      onHazardHit: {
+        knife: { key: 'knife', once: true, blocking: true },
+      },
     },
     hazards: [
       {
@@ -80,6 +91,106 @@ export const LEVELS = [
         coords: { x: 64, y: 24, w: 10, h: 10 },
         sprite: '/images/levels/lv1/sprites/pressure_tank.png',
       },
+    ],
+    // controllable girl with 4-direction walk/idle
+    actors: [
+      {
+        id: 'girl',
+        controller: true,
+        defaultDir: 'rd',
+        cx: 26,
+        cy: 86,
+        scale: 0.08,
+        // adjust walking vector rotation (degrees) to align with background grid
+        // moveAngleDeg: 10,
+        // per-direction fine-tune (degrees). Overrides moveAngleDeg if provided
+        dirAngleDeg: { rd: -16, ld: 16, rt: 16, lt: -16 },
+        speed: 120,
+        variants: {
+          rd: {
+            walk: { kind:'multiImageAnim', animKey:'daughter_walk_rd', scale: 0.08, frames:[
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_1.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_2.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_3.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_4.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_5.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_6.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_7.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_8.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_9.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_10.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_11.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_12.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_13.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_14.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_15.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_16.png',
+            ], frameRate:16, repeat:-1 },
+            idle: { kind:'image', key:'girl_rd_idle', url:'/images/levels/lv1/sprites/daughter_walking/right_down_idle.png', scale: 0.04 }
+          },
+          ld: {
+            walk: { kind:'multiImageAnim', animKey:'daughter_walk_rd', flipX:true, scale: 0.08, frames:[
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_1.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_2.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_3.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_4.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_5.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_6.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_7.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_8.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_9.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_10.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_11.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_12.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_13.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_14.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_15.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_down_16.png',
+            ], frameRate:16, repeat:-1, flipX:true },
+            idle: { kind:'image', key:'girl_ld_idle', url:'/images/levels/lv1/sprites/daughter_walking/right_down_idle.png', flipX:true, scale: 0.04 }
+          },
+          rt: {
+            walk: { kind:'multiImageAnim', animKey:'daughter_walk_rt', scale: 0.1, frames:[
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_1.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_2.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_3.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_4.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_5.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_6.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_7.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_8.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_9.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_10.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_11.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_12.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_13.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_14.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_15.png',
+            ], frameRate:16, repeat:-1 },
+            idle: { kind:'image', key:'girl_rt_idle', url:'/images/levels/lv1/sprites/daughter_walking/right_top_idle.png', scale: 0.039 }
+          },
+          lt: {
+            walk: { kind:'multiImageAnim', animKey:'daughter_walk_rt', flipX:true, scale: 0.1, frames:[
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_1.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_2.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_3.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_4.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_5.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_6.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_7.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_8.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_9.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_10.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_11.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_12.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_13.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_14.png',
+              '/images/levels/lv1/sprites/daughter_walking/to_right_top_15.png',
+            ], frameRate:16, repeat:-1, flipX:true },
+            idle: { kind:'image', key:'girl_lt_idle', url:'/images/levels/lv1/sprites/daughter_walking/right_top_idle.png', flipX:true, scale: 0.039 }
+          }
+        }
+      }
     ],
   },
 ];

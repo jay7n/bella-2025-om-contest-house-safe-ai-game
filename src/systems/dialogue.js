@@ -39,16 +39,18 @@ export default class DialogueManager {
     const father = this.scene.add.image(lX, cY, fatherKey).setOrigin(0.5).setDisplaySize(slotSize, slotSize).setAlpha(0.35);
     const daughter = this.scene.add.image(rX, cY, daughterKey).setOrigin(0.5).setDisplaySize(slotSize, slotSize).setAlpha(0.35);
 
-    // Text area
+    // Text area: unified centered text
     const textPad = slotPad + slotSize + 16;
     const textWidth = Math.max(200, width - textPad * 2);
     const baseFont = this.cfg.fontSize ?? 18;
-    const text = this.scene.add.text(textPad, cY, '', {
+    const centerX = Math.floor(width / 2);
+    const text = this.scene.add.text(centerX, cY, '', {
       fontSize: `${baseFont}px`,
       fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
       color: '#e5e7eb',
+      align: 'center',
       wordWrap: { width: textWidth },
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0.5, 0.5).setVisible(true);
 
     // Continue hint
     const hint = this.scene.add.text(width - 12, h - 10, '点击或按空格继续 ▶', { fontSize: `${Math.max(12, baseFont - 4)}px`, color: '#9ca3af' }).setOrigin(1, 1);
@@ -63,7 +65,9 @@ export default class DialogueManager {
     container.add([bg, father, daughter, text, hint, hit]);
     container.setVisible(false);
 
-    this.ui = { container, bg, father, daughter, text, hint, slotSize };
+    // cache layout helpers
+    const rightTextX = width - textPad; // reserved for future side alignment
+    this.ui = { container, bg, father, daughter, text, hint, slotSize, textPad, textWidth, rightTextX, centerX };
   }
 
   isActive() { return this.active; }
@@ -82,9 +86,16 @@ export default class DialogueManager {
 
   applySpeaker(speaker) {
     const color = this.colors[speaker] || '#e5e7eb';
-    this.ui.text.setColor(color);
+    const { text, centerX } = this.ui;
+    // set color
+    text.setColor(color);
+    // portrait highlight
     this.ui.father.setAlpha(speaker === 'father' ? 1 : 0.35);
     this.ui.daughter.setAlpha(speaker === 'daughter' ? 1 : 0.35);
+    // unified centered layout
+    text.setStyle({ align: 'center' });
+    text.setOrigin(0.5, 0.5);
+    text.setX(centerX);
   }
 
   showLine(index, reset = false) {
@@ -94,9 +105,11 @@ export default class DialogueManager {
     // Typewriter
     this.currentFullText = line.text || '';
     this.currentShown = '';
-    this.ui.text.setText('');
     this.ui.hint.setVisible(false);
     this.typedEvent?.remove(false);
+
+    // Typewriter unified
+    this.ui.text.setText('');
     let i = 0;
     const step = () => {
       if (!this.active) return;
@@ -126,9 +139,10 @@ export default class DialogueManager {
     this.active = false;
     this.ui.container.setVisible(false);
     this.typedEvent?.remove(false);
+    // Clear mask (none in centered mode)
+    this.ui.text.setMask(null);
     if (this.blocking) this.scene.timerEvent && (this.scene.timerEvent.paused = false);
     const cb = this.onComplete; this.onComplete = null;
     cb && cb();
   }
 }
-

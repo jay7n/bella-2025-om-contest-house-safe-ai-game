@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { LEVELS } from '../state/levels.js';
 import DialogueManager from '../systems/dialogue.js';
+import { loadAndCreateMultiImageAnim, spawnMultiImageAnim } from '../systems/multiframe.js';
+import CharacterController from '../systems/characterController.js';
 
 export default class LevelScene extends Phaser.Scene {
   constructor(){ super('Level'); }
@@ -88,10 +90,10 @@ export default class LevelScene extends Phaser.Scene {
     }
 
     if (toLoad.length){
-      this.load.once('complete', () => { drawBg(); drawHazards(); this.setupDialogue(level); });
+      this.load.once('complete', () => { drawBg(); drawHazards(); this.setupActors(level); this.setupDialogue(level); this.setupController(level); });
       this.load.start();
     } else {
-      drawBg(); drawHazards(); this.setupDialogue(level);
+      drawBg(); drawHazards(); this.setupActors(level); this.setupDialogue(level); this.setupController(level);
     }
 
     // 简化：用热区占位（百分比坐标映射到矩形/圆形）
@@ -156,8 +158,19 @@ export default class LevelScene extends Phaser.Scene {
     const tip = this.add.text(x, y-24, h.fact, { fontSize:14, color:'#e5e7eb', backgroundColor:'#00000099', padding:{x:8,y:6}, wordWrap:{width:300} }).setOrigin(0.5);
     this.tweens.add({ targets: tip, alpha:0, y: y-50, duration:1500, onComplete:()=> tip.destroy() });
     if (this.found.size === this.total){ this.finish(true); }
-    // Dialogue trigger by found count
+    // Dialogue trigger by hazard id (specific)
     const levelData = this.levelData;
+    const onHazardHit = levelData?.triggers?.onHazardHit;
+    if (this.dialogue && onHazardHit && levelData?.dialogues?.hazards){
+      const rule = onHazardHit[h.id];
+      if (rule && levelData.dialogues.hazards[rule.key] && !this._playedOnHit?.has(h.id)){
+        this._playedOnHit = this._playedOnHit || new Set();
+        this._playedOnHit.add(h.id);
+        this.dialogue.start(levelData.dialogues.hazards[rule.key], { blocking: (rule.blocking ?? (levelData.dialogueUI?.blocking !== false)) });
+      }
+    }
+
+    // Dialogue trigger by found count
     if (this.dialogue && Array.isArray(this.dialogueFoundRules) && levelData?.dialogues){
       const rule = this.dialogueFoundRules.find(r => r.count === this.found.size && levelData.dialogues?.[r.key]);
       if (rule){
@@ -211,6 +224,47 @@ export default class LevelScene extends Phaser.Scene {
     // Mid-level triggers by found count
     const foundRules = level?.triggers?.onFound || [];
     if (Array.isArray(foundRules)) this.dialogueFoundRules = foundRules.slice();
+  }
+
+  async setupActors(level){
+    if (!Array.isArray(level.actors)) return;
+    for (const a of level.actors){
+      if (a.kind === 'multiImageAnim' && Array.isArray(a.frames) && a.frames.length){
+        await loadAndCreateMultiImageAnim(this, { key: a.animKey, urls: a.frames, frameRate: a.frameRate, repeat: a.repeat });
+        const ref = this.bgBounds || new Phaser.Geom.Rectangle(24, 24, this.scale.width-48, this.scale.height-96);
+        const x = ref.x + (a.cx/100) * ref.width;
+        const y = ref.y + (a.cy/100) * ref.height;
+        const sp = spawnMultiImageAnim(this, a.animKey, { x, y, scale: a.scale ?? 1, depth: 2 });
+        if (a.flipX) sp.setFlipX(true);
+        if (a.flipY) sp.setFlipY(true);
+        // Optional: stash for later control
+        this.actors = this.actors || {};
+        this.actors[a.id] = sp;
+      } else if (a.kind === 'multiImageLooper' && Array.isArray(a.frames) && a.frames.length){
+        const ref = this.bgBounds || new Phaser.Geom.Rectangle(24, 24, this.scale.width-48, this.scale.height-96);
+        const x = ref.x + (a.cx/100) * ref.width;
+        const y = ref.y + (a.cy/100) * ref.height;
+        const { loadAndSpawnMultiImageLooper } = await import('../systems/multiframe.js');
+        const res = await loadAndSpawnMultiImageLooper(this, { key: a.animKey, urls: a.frames, msPerFrame: a.msPerFrame ?? 125, x, y, scale: a.scale ?? 1, depth: 2 });
+        if (a.flipX) res.sprite.setFlipX(true);
+        if (a.flipY) res.sprite.setFlipY(true);
+        this.actors = this.actors || {};
+        this.actors[a.id] = res.sprite;
+      }
+    }
+  }
+
+  async setupController(level){
+    const ctrlDef = Array.isArray(level.actors) ? level.actors.find(a => a.controller) : null;
+    if (!ctrlDef) return;
+    const ref = this.bgBounds || new Phaser.Geom.Rectangle(24, 24, this.scale.width-48, this.scale.height-96);
+    this.controller = new CharacterController(this, ctrlDef, ref);
+    await this.controller.init();
+  }
+
+  update(){
+    super.update?.();
+    this.controller?.update();
   }
 
   // 调试绘制热点矩形/圆形，参考背景图缩放后的区域
