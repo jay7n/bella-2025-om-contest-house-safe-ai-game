@@ -202,10 +202,18 @@ export default class CharacterController {
           const dx = rx - px, dy = ry - py;
           const dist = Math.hypot(dx, dy);
           if (dist < r){
-            // push out along the minimal axis
-            const overlap = r - dist || r; // handle zero dist edge case
-            if (ax === 'x') rx += (dx === 0 ? (vx===0?0:Math.sign(vx))*overlap : (dx/dist)*overlap);
-            else ry += (dy === 0 ? (vy===0?0:Math.sign(vy))*overlap : (dy/dist)*overlap);
+          // push out along the minimal axis
+          const overlap = r - dist || r; // handle zero dist edge case
+          if (overlap > 0) {
+            if (ax === 'x') {
+              // If dist is 0, push out based on movement direction or random if static
+              let pushDir = (dist > 0) ? (dx / dist) : (this.lastHoriz === 'l' ? 1 : -1); 
+              rx += pushDir * overlap;
+            } else {
+              let pushDir = (dist > 0) ? (dy / dist) : 1;
+              ry += pushDir * overlap;
+            }
+          }
           }
         }
         // also check vertices (circle vs point)
@@ -231,8 +239,15 @@ export default class CharacterController {
         const dist = Math.hypot(dx, dy);
         if (dist < rInflated){
           const overlap = rInflated - dist || rInflated;
-          if (ax === 'x') rx += (dx === 0 ? (vx===0?0:Math.sign(vx))*overlap : (dx/dist)*overlap);
-          else ry += (dy === 0 ? (vy===0?0:Math.sign(vy))*overlap : (dy/dist)*overlap);
+          if (overlap > 0) {
+             if (ax === 'x') {
+               let pushDir = (dist > 0) ? (dx / dist) : (this.lastHoriz === 'l' ? 1 : -1);
+               rx += pushDir * overlap;
+             } else {
+               let pushDir = (dist > 0) ? (dy / dist) : 1;
+               ry += pushDir * overlap;
+             }
+          }
         }
       }
     }

@@ -167,6 +167,7 @@ export default class LevelScene extends Phaser.Scene {
     }
 
     // 简化：用热区占位（百分比坐标映射到矩形/圆形）
+    this.isFinished = false;
     this.found = new Set();
     this.total = level.hazards.length;
     this.timeLeft = level.time;
@@ -370,6 +371,9 @@ export default class LevelScene extends Phaser.Scene {
   }
 
   finish(success){
+    if (this.isFinished) return;
+    this.isFinished = true;
+
     this.timerEvent?.remove();
     // fade out BGM
     if (this.bgm){

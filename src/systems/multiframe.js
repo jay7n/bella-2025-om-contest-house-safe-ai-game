@@ -32,13 +32,11 @@ export function loadAndCreateMultiImageAnim(scene, cfg){
           skipMissedFrames: false,
         });
       }
-      // Warm up GPU by briefly drawing each texture once (alpha ~0), then remove next tick
-      const warm = [];
+      // Warm up GPU by simply requesting texture source (no need to add/destroy GameObjects)
       frameKeys.forEach(k => {
-        const img = scene.add.image(2, 2, k).setAlpha(0.001).setDepth(-9999);
-        warm.push(img);
+        scene.textures.get(k);
       });
-      scene.time.delayedCall(16, () => { warm.forEach(i => i.destroy()); resolve({ animKey: key, frameKeys }); });
+      resolve({ animKey: key, frameKeys });
     };
     // If we queued anything, run the loader once and then build
     if (scene.load.list.size > 0) {
